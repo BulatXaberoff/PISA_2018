@@ -1,0 +1,146 @@
+---
+title: "Итоговый проект.Пекарская Наталья Александровна"
+output:
+  html_document:
+    toc: true
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T,
+                      results = "hide")
+Sys.setlocale("LC_CTYPE", "russian")
+options(max.print = 10000)
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(plotly)
+library(knitr)
+library(psych)
+library(markdown)
+library("cowplot")
+library(webshot)
+library(hrbrthemes)
+library(GGally)
+library(viridis)
+
+```
+
+# Исследуемые данные
+В данном отчете приведена подробная информация о базе данных PISA 2018. 
+База состоит из число наблюдений и число переменных, среди которых число 3747 юношей и 3861 девушек. 
+
+Международная программа по оценке образовательных достижений обучающихся PISA 
+(_Programme for International Student Assessment_) 
+является мониторинговым исследованием качества общего образования, которое отвечает 
+на вопрос: «Обладают ли обучающиеся 15-летнего возраста, получающие обязательное 
+общее образование, знаниями и умениями, необходимыми им для полноценного 
+функционирования в современном обществе: решения широкого диапазона задач в 
+различных сферах человеческой деятельности, общения и социальных отношений?» 
+Исследование проводится под эгидой Организации экономического сотрудничества и 
+развития (ОЭСР) трехлетними циклами, начиная с 2000 года. 
+
+В исследовании оцениваются компетенции обучающихся по читательской, 
+математической, естественно-научной грамотности, а также дополнительных 
+компетенций, более подробную информацию о которых можно [посмотреть здесь][1].
+
+[1]:https://ru.wikipedia.org/wiki/%D0%9C%D0%B5%D0%B6%D0%B4%D1%83%D0%BD%D0%B0%D1%80%D0%BE%D0%B4%D0%BD%D0%B0%D1%8F_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D0%B0_%D0%BF%D0%BE_%D0%BE%D1%86%D0%B5%D0%BD%D0%BA%D0%B5_%D0%BE%D0%B1%D1%80%D0%B0%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D1%85_%D0%B4%D0%BE%D1%81%D1%82%D0%B8%D0%B6%D0%B5%D0%BD%D0%B8%D0%B9_%D1%83%D1%87%D0%B0%D1%89%D0%B8%D1%85%D1%81%D1%8F
+
+Данные PISA 2018 изучались с помощью открытого пакета программ RStudio и пакета 
+ggplot (https://ggplot2.tidyverse.org/).
+
+
+
+```{r}
+knitr::opts_chunk$set(echo = T,
+                      results = "markup")
+pisa_data <- readRDS("Pisa_Russia.rds")
+
+# Выбор случайных 200 наблюдений
+sample_data <- pisa_data %>% sample_n(200)
+
+# Выбор указанных переменных из базы данных
+selected_variables <- sample_data %>%
+  select(REPEAT, BELONG, MASTGOAL, WORKMAST, RESILIENCE, COMPETE, GFOFAIL, ATTLNACT) %>%
+  mutate(
+    Mathematics = (sample_data$PV1MATH + sample_data$PV2MATH + sample_data$PV3MATH + sample_data$PV4MATH + sample_data$PV5MATH + sample_data$PV6MATH + sample_data$PV7MATH + sample_data$PV8MATH + sample_data$PV9MATH + sample_data$PV10MATH) / 10,
+    Reading = (sample_data$PV1READ + sample_data$PV2READ + sample_data$PV3READ + sample_data$PV4READ + sample_data$PV5READ + sample_data$PV6READ + sample_data$PV7READ + sample_data$PV8READ + sample_data$PV9READ + sample_data$PV10READ) / 10,
+    Science = (sample_data$PV1SCIE + sample_data$PV2SCIE + sample_data$PV3SCIE + sample_data$PV4SCIE + sample_data$PV5SCIE + sample_data$PV6SCIE + sample_data$PV7SCIE + sample_data$PV8SCIE + sample_data$PV9SCIE + sample_data$PV10SCIE) / 10,
+    Gender = factor(ifelse(sample_data$ST004D01T==1,"female","male"))
+  )
+selected_variables
+```
+
+# Описательный анализ.Вариант 1.
+
+
+```{r}
+df <- selected_variables %>%
+  select(BELONG, MASTGOAL, WORKMAST, Mathematics)
+describe(df)
+```
+```{r}
+options(scipen = 9)
+shapiro_test <- function(x) {
+  result <- shapiro.test(x)
+  return(result$p.value)
+}
+
+# Применение функции shapiro_test() к каждой переменной с помощью apply()
+shapiro_results <- apply(df, 2, shapiro_test)
+shapiro_results
+```
+# Сравнительный анализ.
+
+```{r}
+mean_math_by_gender <- selected_variables %>%
+  group_by(Gender) %>%
+  summarise(mean_math = mean(Mathematics))
+plot <- ggplot(mean_math_by_gender, aes(x = Gender, y = mean_math, fill = Gender)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Средние значения математики по полу",
+       x = "Пол",
+       y = "Среднее значение математики") +
+  scale_fill_manual(values = c("female" = "pink", "male" = "blue")) +
+  theme_ipsum()
+
+# Преобразование графика в интерактивный формат с помощью plotly
+plotly_plot <- ggplotly(plot)
+
+# Вывод интерактивной столбчатой диаграммы
+plotly_plot
+```
+
+```{r}
+t_test_result <- t.test(selected_variables[selected_variables$Gender=="female",]$Mathematics,selected_variables[selected_variables$Gender=="male",]$Mathematics)
+
+# Вывод результатов
+t_test_result
+```
+
+# Корреляционный анализ
+
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+interested_values <- c("BELONG", "MASTGOAL", "WORKMAST", "Mathematics")
+
+# Фильтрация данных и выбор только выбранных переменных
+selected_df <- selected_variables %>%
+  select(BELONG,WORKMAST,Reading,Science,Mathematics)
+
+# Визуализация матрицы корреляций
+ggpairs(selected_df)
+```
+# Вывод
+
+
+
+
+
+
+
+
+
+
+
+
+
+
